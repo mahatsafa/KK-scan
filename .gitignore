@@ -16,3 +16,4 @@ storage/uploads/*
 # lain-lain
 .DS_Store
 npm-debug.log*
+.vercel

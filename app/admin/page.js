@@ -49,8 +49,8 @@ export default async function AdminDashboard({ searchParams }) {
                 {kk.kelurahan.nama} · RT {kk.rt}/RW {kk.rw} · Desil {kk.desil}
               </p>
             </div>
-            <div className="flex shrink-0 gap-2">
-              {kk.fileAsliPath && (
+              <div className="flex shrink-0 gap-2">
+                {kk.fileAsliPath && (
                 
                   href={`/api/kk/${kk.id}/file`}
                   target="_blank"
@@ -60,14 +60,14 @@ export default async function AdminDashboard({ searchParams }) {
                   Lihat file
                 </a>
               )}
-              <Link
-                href={`/admin/${kk.id}/edit`}
-                className="rounded border border-line px-3 py-1.5 text-sm text-ink hover:bg-paper"
-              >
-                Edit
-              </Link>
-              <DeleteKKButton id={kk.id} />
-            </div>
+                <Link
+                  href={`/admin/${kk.id}/edit`}
+                  className="rounded border border-line px-3 py-1.5 text-sm text-ink hover:bg-paper"
+                >
+                  Edit
+                </Link>
+                <DeleteKKButton id={kk.id} />
+              </div>
           </div>
         ))}
       </div>
