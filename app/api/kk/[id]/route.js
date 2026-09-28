@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { tentukanKelurahanId } from '@/lib/kelurahan';
 
 async function pastikanLogin() {
   const session = await getSession();
@@ -15,13 +16,14 @@ export async function PUT(request, { params }) {
   const { id } = params;
 
   try {
+    const kelurahanId = await tentukanKelurahanId(body);
     await prisma.$transaction([
       prisma.anggotaKeluarga.deleteMany({ where: { kartuKeluargaId: id } }),
       prisma.kartuKeluarga.update({
         where: { id },
         data: {
           noKK: body.noKK,
-          kelurahanId: body.kelurahanId,
+          kelurahanId,
           rt: body.rt,
           rw: body.rw,
           alamat: body.alamat,
@@ -53,6 +55,9 @@ export async function PUT(request, { params }) {
 
     return Response.json({ success: true });
   } catch (err) {
+    if (err.message === 'NAMA_KELURAHAN_KOSONG') {
+      return Response.json({ message: 'Nama kelurahan baru wajib diisi.' }, { status: 400 });
+    }
     if (err.code === 'P2002') {
       return Response.json({ message: 'No. KK atau NIK sudah terdaftar sebelumnya.' }, { status: 409 });
     }
