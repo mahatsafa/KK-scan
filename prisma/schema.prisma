@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Kelurahan {
+  id            String          @id @default(cuid())
+  nama          String
+  kecamatan     String
+  kabupatenKota String
+  provinsi      String
+  kodePos       String
+  kodeWilayah   String
+  kartuKeluarga KartuKeluarga[]
+
+  @@map("kelurahan")
+}
+
+model KartuKeluarga {
+  id             String            @id @default(cuid())
+  noKK           String            @unique
+  kelurahanId    String
+  kelurahan      Kelurahan         @relation(fields: [kelurahanId], references: [id])
+  rt             String
+  rw             String
+  alamat         String
+  kepalaKeluarga String
+  desil          Int
+  fileAsliPath   String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  anggota        AnggotaKeluarga[]
+
+  @@index([kelurahanId, rt, rw])
+  @@map("kartu_keluarga")
+}
+
+model AnggotaKeluarga {
+  id                 String        @id @default(cuid())
+  kartuKeluargaId    String
+  kartuKeluarga      KartuKeluarga @relation(fields: [kartuKeluargaId], references: [id], onDelete: Cascade)
+  namaLengkap        String
+  nik                String        @unique
+  jenisKelamin       String
+  tempatLahir        String
+  tanggalLahir       DateTime      @db.Date
+  agama              String
+  pendidikanTerakhir String
+  pekerjaan          String
+  statusPerkawinan   String
+  statusHubungan     String
+  kewarganegaraan    String
+  nomorPaspor        String?
+  nomorKitap         String?
+  namaAyah           String
+  namaIbu            String
+
+  @@index([kartuKeluargaId])
+  @@map("anggota_keluarga")
+}

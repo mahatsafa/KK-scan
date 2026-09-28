@@ -1,0 +1,18 @@
+# dependencies & build
+node_modules/
+.next/
+out/
+build/
+
+# rahasia (jangan pernah di-commit)
+.env
+.env.*
+!.env.example
+
+# file KK yang diupload (data pribadi)
+storage/uploads/*
+!storage/uploads/.gitkeep
+
+# lain-lain
+.DS_Store
+npm-debug.log*
