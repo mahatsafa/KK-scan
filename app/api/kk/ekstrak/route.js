@@ -6,51 +6,14 @@ import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 import { parseTeksKK } from '@/lib/ocr/parseKK';
+import { bacaGambarTerbaik } from '@/lib/ocr/bacaGambar';
+import { pdfKeGambar } from '@/lib/ocr/pdfKeGambar';
 
 export const runtime = 'nodejs';
 
 const TIPE_DIIZINKAN = ['image/jpeg', 'image/png', 'application/pdf'];
 const UKURAN_MAKS = 10 * 1024 * 1024; // 10MB
 const FOLDER_UPLOAD = path.join(process.cwd(), 'storage', 'uploads');
-
-// Ambil daftar baris (beserta kata & posisinya) dari hasil Tesseract, apa pun
-// bentuk keluarannya di versi library yang terpasang.
-function ambilBaris(data) {
-  if (Array.isArray(data.lines) && data.lines.length) return data.lines;
-  const dariBlocks = (data.blocks || [])
-    .flatMap((b) => b.paragraphs || [])
-    .flatMap((p) => p.lines || []);
-  return dariBlocks;
-}
-
-// Susun teks per baris. Celah horizontal yang lebar antar kata (batas kolom
-// tabel) ditandai " | " supaya parser bisa memisahkan kolom dengan pasti.
-function teksDenganKolom(data) {
-  try {
-    const baris = ambilBaris(data);
-    if (!baris.length) return data.text || '';
-
-    const hasil = baris
-      .map((line) => {
-        const kata = (line.words || []).filter((w) => w.text && w.text.trim() && w.bbox);
-        if (!kata.length) return (line.text || '').trim();
-
-        const tinggi = Math.max(1, (line.bbox ? line.bbox.y1 - line.bbox.y0 : 0) || 12);
-        let out = kata[0].text.trim();
-        for (let i = 1; i < kata.length; i++) {
-          const celah = kata[i].bbox.x0 - kata[i - 1].bbox.x1;
-          out += (celah > tinggi ? ' | ' : ' ') + kata[i].text.trim();
-        }
-        return out;
-      })
-      .filter(Boolean)
-      .join('\n');
-
-    return hasil || data.text || '';
-  } catch (err) {
-    return data.text || '';
-  }
-}
 
 async function pastikanLogin() {
   const session = await getSession();
@@ -85,26 +48,56 @@ export async function POST(request) {
   const fileAsliPath = `storage/uploads/${namaFile}`;
 
   let teksMentah = '';
+  let sumberTeks = '';
 
   try {
     if (file.type === 'application/pdf') {
       const hasilPdf = await pdfParse(buffer);
-      teksMentah = hasilPdf.text || '';
+      const teksPdf = hasilPdf.text || '';
 
-      if (teksMentah.trim().length < 50) {
-        return Response.json(
-          {
-            message:
-              'PDF ini sepertinya hasil scan/foto (tidak ada teks yang bisa dibaca langsung). Untuk sementara, upload sebagai JPG/PNG.',
-          },
-          { status: 422 }
-        );
+      if (teksPdf.trim().length >= 50) {
+        // PDF "born-digital": sudah ada teksnya, tidak perlu OCR
+        teksMentah = teksPdf;
+        sumberTeks = 'PDF (teks langsung)';
+      } else {
+        // Kemungkinan PDF hasil scan/foto: ubah jadi gambar dulu, baru OCR
+        let halaman;
+        try {
+          halaman = await pdfKeGambar(buffer, 2);
+        } catch (err) {
+          if (err.message === 'PDFTOPPM_TIDAK_ADA') {
+            return Response.json(
+              {
+                message:
+                  'PDF ini sepertinya hasil scan/foto. Untuk membacanya otomatis, server butuh paket "poppler-utils" ' +
+                  '(jalankan: sudo apt install poppler-utils -y lalu coba lagi). Sementara itu, upload sebagai JPG/PNG.',
+              },
+              { status: 422 }
+            );
+          }
+          throw err;
+        }
+
+        const worker = await createWorker('ind');
+        try {
+          let terbaik = { skor: -1, teks: '', varian: '' };
+          for (const gambarHalaman of halaman) {
+            const hasil = await bacaGambarTerbaik(gambarHalaman, worker);
+            if (hasil.skor > terbaik.skor) terbaik = hasil;
+            if (hasil.cukup) break;
+          }
+          teksMentah = terbaik.teks;
+          sumberTeks = `PDF hasil scan, dibaca sebagai gambar (${terbaik.varian})`;
+        } finally {
+          await worker.terminate();
+        }
       }
     } else {
       const worker = await createWorker('ind');
       try {
-        const hasil = await worker.recognize(buffer);
-        teksMentah = teksDenganKolom(hasil.data);
+        const hasil = await bacaGambarTerbaik(buffer, worker);
+        teksMentah = hasil.teks;
+        sumberTeks = `Gambar (${hasil.varian})`;
       } finally {
         await worker.terminate();
       }
@@ -117,5 +110,5 @@ export async function POST(request) {
   const daftarKelurahan = await prisma.kelurahan.findMany();
   const hasilParse = parseTeksKK(teksMentah, daftarKelurahan);
 
-  return Response.json({ ...hasilParse, fileAsliPath, teksMentah });
+  return Response.json({ ...hasilParse, fileAsliPath, teksMentah, sumberTeks });
 }

@@ -77,6 +77,9 @@ export default function TambahKKClient({ daftarKelurahan }) {
             <p className="mt-3 text-sm text-ink">
               {extractedData.anggota.length} anggota terbaca. Lengkapi kolom yang masih kosong, lalu simpan.
             </p>
+            {extractedData.sumberTeks && (
+              <p className="mt-1 text-xs text-ink-soft">Dibaca dari: {extractedData.sumberTeks}</p>
+            )}            
             <details className="mt-2">
               <summary className="cursor-pointer text-xs text-ink-soft">Lihat teks mentah hasil OCR</summary>
               <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded border border-line bg-paper p-3 text-xs text-ink">
