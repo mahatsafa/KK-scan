@@ -51,7 +51,7 @@ export default async function AdminDashboard({ searchParams }) {
             </div>
               <div className="flex shrink-0 gap-2">
                 {kk.fileAsliPath && (
-                
+                <a
                   href={`/api/kk/${kk.id}/file`}
                   target="_blank"
                   rel="noreferrer"
